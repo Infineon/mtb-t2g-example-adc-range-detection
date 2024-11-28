@@ -1,6 +1,6 @@
 /**********************************************************************************************************************
  * \file main.c
- * \copyright Copyright (C) Infineon Technologies AG 2019
+ * \copyright Copyright (C) Infineon Technologies AG 2024
  *
  * Use of this file is subject to the terms of use agreed between (i) you or the company in which ordinary course of
  * business you are acting and (ii) Infineon Technologies AG or its licensees. If and as long as no such terms of use
@@ -27,7 +27,7 @@
 /*********************************************************************************************************************/
 /*-----------------------------------------------------Includes------------------------------------------------------*/
 /*********************************************************************************************************************/
-#include "cyhal.h"
+
 #include "cybsp.h"
 #include "cy_retarget_io.h"
 
@@ -56,6 +56,7 @@ bool g_rangeDetected = false;
 /*********************************************************************************************************************/
 /*---------------------------------------------Function Implementations----------------------------------------------*/
 /*********************************************************************************************************************/
+
 /**********************************************************************************************************************
  * Function Name: handleAdcIrq
  * Summary:
@@ -149,15 +150,6 @@ int main(void)
     /* Variable to store the received character through terminal */ 
     uint8_t uartReadValue;   
     
-    #if defined (CY_DEVICE_SECURE)
-    cyhal_wdt_t wdt_obj;
-
-    /* Clear watchdog timer so that it doesn't trigger a reset */
-    result = cyhal_wdt_init(&wdt_obj, cyhal_wdt_get_max_timeout_ms());
-    CY_ASSERT(CY_RSLT_SUCCESS == result);
-    cyhal_wdt_free(&wdt_obj);
-    #endif /* #if defined (CY_DEVICE_SECURE) */
-
     /* Initialize the device and board peripherals */
     if (cybsp_init() != CY_RSLT_SUCCESS)
     {
@@ -165,10 +157,9 @@ int main(void)
     }
 
     /* Initialize retarget-io to use the debug UART port */
-    if (cy_retarget_io_init(CYBSP_DEBUG_UART_TX, CYBSP_DEBUG_UART_RX, CY_RETARGET_IO_BAUDRATE) != CY_RSLT_SUCCESS)
-    {
-        CY_ASSERT(0);
-    }
+    Cy_SCB_UART_Init(UART_HW, &UART_config, NULL);
+    Cy_SCB_UART_Enable(UART_HW);
+    cy_retarget_io_init(UART_HW);
     
     /* Initialize the SAR module */
     uint16_t upperThreshold = ADC_3_5V_LEVEL;
@@ -204,6 +195,7 @@ int main(void)
         {
             g_rangeDetected = false;
             Cy_GPIO_Set(CYBSP_USER_LED_PORT, CYBSP_USER_LED_PIN);
+            Cy_SysLib_Delay(200);
         }
         /* Set user led port pin to low when no range condition was detected */
         else
@@ -212,7 +204,9 @@ int main(void)
         }
         
         /* Check if key was pressed and change range detection parameter accordingly */
-        if (cyhal_uart_getc(&cy_retarget_io_uart_obj, &uartReadValue, 1) == CY_RSLT_SUCCESS)
+        uartReadValue = Cy_SCB_UART_Get(UART_HW);
+        
+        if(uartReadValue != 0xff)
         {
             switch (uartReadValue)
             {
