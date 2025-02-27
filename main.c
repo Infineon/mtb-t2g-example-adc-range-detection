@@ -1,6 +1,6 @@
 /**********************************************************************************************************************
  * \file main.c
- * \copyright Copyright (C) Infineon Technologies AG 2024
+ * \copyright Copyright (C) Infineon Technologies AG 2019
  *
  * Use of this file is subject to the terms of use agreed between (i) you or the company in which ordinary course of
  * business you are acting and (ii) Infineon Technologies AG or its licensees. If and as long as no such terms of use
@@ -30,6 +30,7 @@
 
 #include "cybsp.h"
 #include "cy_retarget_io.h"
+#include "mtb_hal.h"
 
 /*********************************************************************************************************************/
 /*------------------------------------------------------Macros-------------------------------------------------------*/
@@ -52,6 +53,10 @@
 /*********************************************************************************************************************/
 /* Flag set when the ADC output voltage is out of range */
 bool g_rangeDetected = false;
+
+/* For the Retarget -IO (Debug UART) usage */
+static cy_stc_scb_uart_context_t    UART_context;           /** UART context */
+static mtb_hal_uart_t               UART_hal_obj;           /** Debug UART HAL object  */
 
 /*********************************************************************************************************************/
 /*---------------------------------------------Function Implementations----------------------------------------------*/
@@ -147,6 +152,8 @@ static void configureAdcRangeDetectionMode(cy_en_sar2_range_detection_mode_t det
  */
 int main(void)
 {   
+    cy_rslt_t result;
+
     /* Variable to store the received character through terminal */ 
     uint8_t uartReadValue;   
     
@@ -156,10 +163,33 @@ int main(void)
         CY_ASSERT(0);
     }
 
-    /* Initialize retarget-io to use the debug UART port */
-    Cy_SCB_UART_Init(UART_HW, &UART_config, NULL);
+    /* Debug UART init */
+    result = (cy_rslt_t)Cy_SCB_UART_Init(UART_HW, &UART_config, &UART_context);
+
+    /* UART init failed. Stop program execution */
+    if (result != CY_RSLT_SUCCESS)
+    {
+        CY_ASSERT(0);
+    }
+
     Cy_SCB_UART_Enable(UART_HW);
-    cy_retarget_io_init(UART_HW);
+
+    /* Setup the HAL UART */
+    result = mtb_hal_uart_setup(&UART_hal_obj, &UART_hal_config, &UART_context, NULL);
+
+    /* HAL UART init failed. Stop program execution */
+    if (result != CY_RSLT_SUCCESS)
+    {
+        CY_ASSERT(0);
+    }
+
+    result = cy_retarget_io_init(&UART_hal_obj);
+
+    /* HAL retarget_io init failed. Stop program execution */
+    if (result != CY_RSLT_SUCCESS)
+    {
+        CY_ASSERT(0);
+    }
     
     /* Initialize the SAR module */
     uint16_t upperThreshold = ADC_3_5V_LEVEL;
